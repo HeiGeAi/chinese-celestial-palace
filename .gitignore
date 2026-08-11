@@ -1,0 +1,8 @@
+.DS_Store
+.env
+.env.*
+__pycache__/
+*.py[cod]
+docs/superpowers/
+output/
+prompt.txt

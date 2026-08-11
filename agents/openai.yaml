@@ -1,0 +1,13 @@
+interface:
+  display_name: Chinese Celestial Palace｜中式天宫
+  short_description: 生成电影级中式天宫构图、提示词与成图
+  default_prompt: 使用 $chinese-celestial-palace 把我的主题转译成电影级中式天宫视觉；如果我要求直接出图，请选择我指定的内置或 GPTX 兼容通道。
+  icon_small: assets/icon.svg
+  icon_large: assets/icon.svg
+policy:
+  products:
+  - chatgpt
+  - codex
+  - api
+  - atlas
+  allow_implicit_invocation: true
