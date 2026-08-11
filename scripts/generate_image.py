@@ -9,13 +9,21 @@ import tempfile
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 DEFAULT_BASE_URL = "https://api.gptx.cc/v1"
 DEFAULT_MODEL = "gpt-image-2"
 MAX_RESPONSE_BYTES = 64 * 1024 * 1024
 IMAGE_SIGNATURES = (b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff", b"RIFF")
+
+
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, *_args, **_kwargs):
+        return None
+
+
+_NO_REDIRECT_OPEN = build_opener(_NoRedirect).open
 
 
 def _is_loopback(hostname):
@@ -59,7 +67,8 @@ def _valid_image(data):
     return data.startswith(b"RIFF") and data[8:12] == b"WEBP"
 
 
-def image_bytes_from_payload(payload, opener=urlopen, timeout=300):
+def image_bytes_from_payload(payload, opener=None, timeout=300):
+    opener = opener or _NO_REDIRECT_OPEN
     data = payload.get("data") if isinstance(payload, dict) else None
     candidate = data[0] if isinstance(data, list) and data else None
     if not isinstance(candidate, dict):
@@ -100,15 +109,17 @@ def image_bytes_from_payload(payload, opener=urlopen, timeout=300):
 def _write_atomic(output, data):
     output = Path(output).expanduser().resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(dir=output.parent, prefix=f".{output.name}.", delete=False) as handle:
-        temp_path = Path(handle.name)
-        handle.write(data)
-        handle.flush()
-        os.fsync(handle.fileno())
+    temp_path = None
     try:
+        with tempfile.NamedTemporaryFile(dir=output.parent, prefix=f".{output.name}.", delete=False) as handle:
+            temp_path = Path(handle.name)
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
         os.replace(temp_path, output)
     except Exception:
-        temp_path.unlink(missing_ok=True)
+        if temp_path:
+            temp_path.unlink(missing_ok=True)
         raise
     return output
 
@@ -117,15 +128,15 @@ def generate_image(
     prompt,
     output,
     size="1536x2048",
-    api_key=None,
     base_url=None,
     model=None,
     timeout=300,
-    opener=urlopen,
+    opener=None,
 ):
-    key = os.environ.get("GPTX_API_KEY") if api_key is None else api_key
+    key = os.environ.get("GPTX_API_KEY")
     if not key:
         raise ValueError("缺少 GPTX_API_KEY 环境变量")
+    opener = opener or _NO_REDIRECT_OPEN
     prompt = prompt.strip()
     if not prompt:
         raise ValueError("提示词不能为空")
