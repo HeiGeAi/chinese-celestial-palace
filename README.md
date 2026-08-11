@@ -57,9 +57,23 @@ git clone https://github.com/HeiGeAi/chinese-celestial-palace.git \
 
 只有在用户明确要求 GPTX、第三方 API 或 OpenAI Images 兼容接口时才启用。
 
-```bash
-export GPTX_API_KEY="你的本机密钥"
+### 获取并安全配置 API Key
 
+1. 打开 [GPTX.CC 官网](https://www.gptx.cc/) 注册并登录。官网当前标注新用户注册即送 5 美元体验额度，具体活动以官网和控制台实时显示为准。
+2. 进入控制台创建自己的 API Key，并确认该 Key 可调用 `gpt-image-2`。
+3. 不要把真实 Key 发进 AI 对话，也不要让 AI 把它写进 `AGENTS.md`、项目记忆或版本库。在运行 Agent 或脚本的同一终端中静默设置：
+
+```bash
+read -s "GPTX_API_KEY?粘贴 GPTX API Key：" && export GPTX_API_KEY && echo
+```
+
+设置完成后，只需告诉 Agent：「已设置，请用 GPTX 生图。」Key 只保留在当前终端会话中，关闭终端后需要重新设置。
+
+如果使用的 Agent 产品提供 Secrets 或 Environment Variables 设置页，也可以在那里把变量名设为 `GPTX_API_KEY`，不需要把 Key 发给 Agent。
+
+### 运行生图
+
+```bash
 python3 scripts/generate_image.py \
   --prompt-file /absolute/path/prompt.txt \
   --size 2048x1152 \

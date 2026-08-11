@@ -107,9 +107,16 @@ description: "Use when creating, adapting, diagnosing, refining, or directly gen
 
 ### 使用 GPTX 兼容 API
 
-1. 要求用户在本机设置 `GPTX_API_KEY`，不得让用户把完整密钥贴进对话，也不得写入 `SKILL.md`、`README.md`、`AGENTS.md`、版本库或日志。
-2. 把必要排除项合并进自然语言主提示词，因为该路径只发送 `prompt`，不假设独立 `negative_prompt` 字段可用。
-3. 从本 Skill 根目录运行：
+1. 用户没有 Key 时，引导其访问 [GPTX.CC](https://www.gptx.cc/) 注册并进入控制台创建 API Key，确认该 Key 可调用 `gpt-image-2`。官网当前标注新用户注册即送 5 美元体验额度，具体活动与可用模型以控制台实时显示为准。
+2. 指导用户在本机设置 `GPTX_API_KEY`，不得要求用户把完整 Key 贴进对话，也不得写入 `SKILL.md`、`README.md`、`AGENTS.md`、版本库、项目记忆或日志。macOS 的 zsh 可在运行 Agent 或脚本的同一终端中静默输入：
+
+   ```bash
+   read -s "GPTX_API_KEY?粘贴 GPTX API Key：" && export GPTX_API_KEY && echo
+   ```
+
+   设置完成后，用户只需回复「已设置，请用 GPTX 生图」。
+3. 把必要排除项合并进自然语言主提示词，因为该路径只发送 `prompt`，不假设独立 `negative_prompt` 字段可用。
+4. 从本 Skill 根目录运行：
 
    ```bash
    python3 scripts/generate_image.py \
@@ -118,8 +125,8 @@ description: "Use when creating, adapting, diagnosing, refining, or directly gen
      --output /absolute/path/result.png
    ```
 
-4. 默认使用 `https://api.gptx.cc/v1/images/generations` 和 `gpt-image-2`。仅在用户明确提供兼容服务时，通过 `GPTX_BASE_URL` 和 `GPTX_IMAGE_MODEL` 覆盖；脚本固定 `n=1`。
-5. 优先使用已验证像素尺寸：`1:1` 用 `2048x2048`，`3:4` 用 `1536x2048`，`4:3` 用 `2048x1536`，`9:16` 用 `1152x2048`，`16:9` 用 `2048x1152`。其他电影画幅保留在提示词中，并选择最接近的可用尺寸，不宣称精确比例。
-6. 生成后打开实际图片，依据 [quality-gates.md](references/quality-gates.md) 检查。只有文件非空、可读取且视觉质检通过，才报告图片已生成。
+5. 默认使用 `https://api.gptx.cc/v1/images/generations` 和 `gpt-image-2`。仅在用户明确提供兼容服务时，通过 `GPTX_BASE_URL` 和 `GPTX_IMAGE_MODEL` 覆盖；脚本固定 `n=1`。
+6. 优先使用已验证像素尺寸：`1:1` 用 `2048x2048`，`3:4` 用 `1536x2048`，`4:3` 用 `2048x1536`，`9:16` 用 `1152x2048`，`16:9` 用 `2048x1152`。其他电影画幅保留在提示词中，并选择最接近的可用尺寸，不宣称精确比例。
+7. 生成后打开实际图片，依据 [quality-gates.md](references/quality-gates.md) 检查。只有文件非空、可读取且视觉质检通过，才报告图片已生成。
 
 生成结果出现泛东亚建筑、塑料 CG、云层贴图、人物漂浮或多奇观竞争时，依据 [quality-gates.md](references/quality-gates.md) 定向重做。
