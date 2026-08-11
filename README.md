@@ -1,5 +1,7 @@
 # Chinese Celestial Palace
 
+当前版本：[v1.1.0](https://github.com/HeiGeAi/chinese-celestial-palace/releases/tag/v1.1.0)
+
 把任意主题转译为电影级「中式天宫」构图、提示词与成图。
 
 它不靠龙凤、灯笼、巨月和祥云堆砌东方感，而是用可信的中国木构、云海空间、尺度锚点、单一神迹与电影光线建立完整视觉语言。
