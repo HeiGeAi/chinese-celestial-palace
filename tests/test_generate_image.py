@@ -126,6 +126,36 @@ class GenerateImageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "HTTPS"):
             image_bytes_from_payload({"data": [{"url": "http://example.com/image.png"}]})
 
+    def test_rejects_final_output_symlink_without_changing_its_target(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            victim = root / "victim.png"
+            victim.write_bytes(b"original victim")
+            output = root / "result.png"
+            output.symlink_to(victim)
+
+            with patch.dict(os.environ, {"GPTX_API_KEY": "test-key"}):
+                with self.assertRaisesRegex(ValueError, "符号链接"):
+                    generate_image("prompt", output, base_url=self.base_url)
+
+            self.assertTrue(output.is_symlink())
+            self.assertEqual(victim.read_bytes(), b"original victim")
+
+    def test_rejects_symlinked_output_parent_without_changing_target_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            real_parent = root / "real-parent"
+            real_parent.mkdir()
+            parent_link = root / "linked-parent"
+            parent_link.symlink_to(real_parent, target_is_directory=True)
+            output = parent_link / "result.png"
+
+            with patch.dict(os.environ, {"GPTX_API_KEY": "test-key"}):
+                with self.assertRaisesRegex(ValueError, "符号链接"):
+                    generate_image("prompt", output, base_url=self.base_url)
+
+            self.assertFalse((real_parent / "result.png").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

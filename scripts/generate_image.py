@@ -5,7 +5,8 @@ import binascii
 import json
 import os
 import re
-import tempfile
+import stat
+import uuid
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
@@ -106,21 +107,78 @@ def image_bytes_from_payload(payload, opener=None, timeout=300):
     return image
 
 
-def _write_atomic(output, data):
-    output = Path(output).expanduser().resolve()
-    output.parent.mkdir(parents=True, exist_ok=True)
-    temp_path = None
+def _open_output_parent(output):
+    output = Path(os.path.abspath(os.path.expanduser(os.fspath(output))))
+    if output.parts[:2] == ("/", "var") and Path("/var").resolve() == Path("/private/var"):
+        output = Path("/private/var", *output.parts[2:])
+    elif output.parts[:2] == ("/", "tmp") and Path("/tmp").resolve() == Path("/private/tmp"):
+        output = Path("/private/tmp", *output.parts[2:])
+    parts = output.parent.parts
+    directory_fd = os.open(parts[0], os.O_RDONLY | os.O_DIRECTORY)
     try:
-        with tempfile.NamedTemporaryFile(dir=output.parent, prefix=f".{output.name}.", delete=False) as handle:
-            temp_path = Path(handle.name)
+        for component in parts[1:]:
+            try:
+                next_fd = os.open(
+                    component,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                    dir_fd=directory_fd,
+                )
+            except FileNotFoundError:
+                os.mkdir(component, mode=0o755, dir_fd=directory_fd)
+                next_fd = os.open(
+                    component,
+                    os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
+                    dir_fd=directory_fd,
+                )
+            except (NotADirectoryError, OSError) as error:
+                raise ValueError("输出目录不能包含符号链接") from error
+            os.close(directory_fd)
+            directory_fd = next_fd
+        try:
+            existing = os.stat(output.name, dir_fd=directory_fd, follow_symlinks=False)
+        except FileNotFoundError:
+            existing = None
+        if existing is not None and stat.S_ISLNK(existing.st_mode):
+            raise ValueError("输出文件不能是符号链接")
+        return output, directory_fd
+    except Exception:
+        os.close(directory_fd)
+        raise
+
+
+def _write_atomic(output, data):
+    output, directory_fd = _open_output_parent(output)
+    temp_name = f".{output.name}.{uuid.uuid4().hex}.tmp"
+    temp_fd = None
+    try:
+        temp_fd = os.open(
+            temp_name,
+            os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+            0o600,
+            dir_fd=directory_fd,
+        )
+        with os.fdopen(temp_fd, "wb") as handle:
+            temp_fd = None
             handle.write(data)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temp_path, output)
+        os.replace(
+            temp_name,
+            output.name,
+            src_dir_fd=directory_fd,
+            dst_dir_fd=directory_fd,
+        )
+        os.fsync(directory_fd)
     except Exception:
-        if temp_path:
-            temp_path.unlink(missing_ok=True)
+        if temp_fd is not None:
+            os.close(temp_fd)
+        try:
+            os.unlink(temp_name, dir_fd=directory_fd)
+        except FileNotFoundError:
+            pass
         raise
+    finally:
+        os.close(directory_fd)
     return output
 
 
