@@ -19,6 +19,17 @@ MAX_RESPONSE_BYTES = 64 * 1024 * 1024
 IMAGE_SIGNATURES = (b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff", b"RIFF")
 
 
+def _script_version():
+    try:
+        version = (Path(__file__).resolve().parent.parent / "VERSION").read_text(encoding="utf-8").strip()
+        return version or "dev"
+    except OSError:
+        return "dev"
+
+
+USER_AGENT = f"Chinese-Celestial-Palace/{_script_version()}"
+
+
 class _NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, *_args, **_kwargs):
         return None
@@ -95,7 +106,7 @@ def image_bytes_from_payload(payload, opener=None, timeout=300):
         parsed = urlsplit(image_url)
         if parsed.scheme != "https" or not parsed.hostname:
             raise ValueError("生图结果 URL 必须使用 HTTPS")
-        request = Request(image_url, headers={"Accept": "image/*", "User-Agent": "Chinese-Celestial-Palace/1.0"})
+        request = Request(image_url, headers={"Accept": "image/*", "User-Agent": USER_AGENT})
         try:
             with opener(request, timeout=timeout) as response:
                 final = urlsplit(response.geturl())
@@ -173,7 +184,7 @@ def generate_image(
             "Authorization": f"Bearer {key}",
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "Chinese-Celestial-Palace/1.0",
+            "User-Agent": USER_AGENT,
         },
     )
     try:
