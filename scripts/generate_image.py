@@ -2,6 +2,7 @@
 import argparse
 import base64
 import binascii
+import ipaddress
 import json
 import os
 import re
@@ -27,7 +28,12 @@ _NO_REDIRECT_OPEN = build_opener(_NoRedirect).open
 
 
 def _is_loopback(hostname):
-    return hostname in {"127.0.0.1", "localhost", "::1"}
+    if hostname == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        return False
 
 
 def image_endpoint(base_url):
