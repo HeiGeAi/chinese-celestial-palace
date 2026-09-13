@@ -45,7 +45,7 @@ git clone https://github.com/HeiGeAi/chinese-celestial-palace.git \
   ~/.codex/skills/chinese-celestial-palace
 ```
 
-也可以下载仓库中的 ZIP，把目录放进当前 Agent 的 Skills 目录。
+也可以在仓库页面点 Code → Download ZIP 下载完整源码包，或从 [Releases](https://github.com/HeiGeAi/chinese-celestial-palace/releases) 获取发行包，把目录放进当前 Agent 的 Skills 目录。
 
 ## 使用示例
 
