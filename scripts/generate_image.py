@@ -148,6 +148,10 @@ def generate_image(
         raise ValueError("提示词不能为空")
     if not re.fullmatch(r"(?:\d{3,5}x\d{3,5}|[124]K)", size):
         raise ValueError("size 必须是像素尺寸或 1K、2K、4K")
+    if "x" in size:
+        width, height = (int(part) for part in size.split("x"))
+        if not (256 <= width <= 8192 and 256 <= height <= 8192):
+            raise ValueError("size 宽高必须在 256 到 8192 像素之间")
     model = model or os.environ.get("GPTX_IMAGE_MODEL", DEFAULT_MODEL)
     if not model.strip():
         raise ValueError("GPTX_IMAGE_MODEL 不能为空")
