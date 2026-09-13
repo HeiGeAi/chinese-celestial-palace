@@ -40,6 +40,8 @@
 
 ## 安装
 
+要求 Python >= 3.9（脚本只用标准库，零三方依赖）。
+
 ```bash
 git clone https://github.com/HeiGeAi/chinese-celestial-palace.git \
   ~/.codex/skills/chinese-celestial-palace
