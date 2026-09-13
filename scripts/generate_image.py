@@ -25,6 +25,7 @@ class _NoRedirect(HTTPRedirectHandler):
 
 
 _NO_REDIRECT_OPEN = build_opener(_NoRedirect).open
+_FOLLOW_REDIRECT_OPEN = build_opener().open
 
 
 def _is_loopback(hostname):
@@ -74,7 +75,8 @@ def _valid_image(data):
 
 
 def image_bytes_from_payload(payload, opener=None, timeout=300):
-    opener = opener or _NO_REDIRECT_OPEN
+    # 结果图下载不带凭证，允许跟随重定向（CDN 302 签名链接）；API 请求仍禁重定向
+    opener = opener or _FOLLOW_REDIRECT_OPEN
     data = payload.get("data") if isinstance(payload, dict) else None
     candidate = data[0] if isinstance(data, list) and data else None
     if not isinstance(candidate, dict):
@@ -96,6 +98,9 @@ def image_bytes_from_payload(payload, opener=None, timeout=300):
         request = Request(image_url, headers={"Accept": "image/*", "User-Agent": "Chinese-Celestial-Palace/1.0"})
         try:
             with opener(request, timeout=timeout) as response:
+                final = urlsplit(response.geturl())
+                if final.scheme != "https":
+                    raise ValueError("生图结果重定向到了非 HTTPS 地址")
                 content_type = response.headers.get_content_type()
                 if not content_type.startswith("image/"):
                     raise ValueError("生图结果 URL 未返回图片")
@@ -182,7 +187,7 @@ def generate_image(
         payload = json.loads(raw)
     except (json.JSONDecodeError, UnicodeDecodeError) as error:
         raise ValueError("生图接口返回了无效 JSON") from error
-    return _write_atomic(output, image_bytes_from_payload(payload, opener=opener, timeout=timeout))
+    return _write_atomic(output, image_bytes_from_payload(payload, timeout=timeout))
 
 
 def _prompt_from_args(args):
