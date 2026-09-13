@@ -202,11 +202,18 @@ def _prompt_from_args(args):
 def main():
     parser = argparse.ArgumentParser(description="使用 GPTX 兼容 Images API 生成一张图片")
     prompt_group = parser.add_mutually_exclusive_group(required=True)
-    prompt_group.add_argument("--prompt")
+    prompt_group.add_argument(
+        "--prompt",
+        help="提示词文本。注意：该参数会出现在 shell history 和进程列表中，敏感内容请改用 --prompt-file",
+    )
     prompt_group.add_argument("--prompt-file")
     parser.add_argument("--output", required=True)
     parser.add_argument("--size", default="1536x2048")
-    parser.add_argument("--base-url", default=os.environ.get("GPTX_BASE_URL", DEFAULT_BASE_URL))
+    parser.add_argument(
+        "--base-url",
+        default=os.environ.get("GPTX_BASE_URL", DEFAULT_BASE_URL),
+        help="兼容服务的根地址（如 https://api.gptx.cc/v1），不要传完整的 /images/generations endpoint",
+    )
     parser.add_argument("--model", default=os.environ.get("GPTX_IMAGE_MODEL", DEFAULT_MODEL))
     parser.add_argument("--timeout", type=int, default=300)
     args = parser.parse_args()
