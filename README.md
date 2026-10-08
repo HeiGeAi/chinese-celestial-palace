@@ -40,11 +40,12 @@
 
 ## 安装
 
-要求 Python >= 3.9（脚本只用标准库，零三方依赖）。
+要求 Python >= 3.9。第三方 API 生图脚本使用 Pillow 校验完整图片；提示词工作流和宿主内置生图无需安装脚本依赖。
 
 ```bash
 git clone https://github.com/HeiGeAi/chinese-celestial-palace.git \
   ~/.codex/skills/chinese-celestial-palace
+python3 -m pip install -r ~/.codex/skills/chinese-celestial-palace/requirements.txt
 ```
 
 也可以在仓库页面点 Code → Download ZIP 下载完整源码包，或从 [Releases](https://github.com/HeiGeAi/chinese-celestial-palace/releases) 获取发行包，把目录放进当前 Agent 的 Skills 目录。
@@ -112,3 +113,8 @@ python3 scripts/generate_image.py \
 > 建筑负责秩序，云海负责留白，光线负责神性，自然负责诗意，人物负责尺度与叙事。
 
 Skill 内含视觉 DNA、八种构图原型、天界聚落拓扑、镜头与画幅路由、提示词编译器、动态负面约束和 100 分质量门，可用于自然语言图像模型、Midjourney、FLUX、SDXL 与中文图像工作流。
+
+### Image validation dependency
+
+Before running the generator or tests, install `python -m pip install -r requirements.txt`.
+PNG, JPEG and WebP responses are fully decoded before atomic replacement, with a 64 MiB encoded-file limit and a 32-million-pixel limit.

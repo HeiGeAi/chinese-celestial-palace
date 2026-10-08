@@ -2,6 +2,14 @@
 import argparse
 import base64
 import binascii
+import io
+import warnings
+
+try:
+    from PIL import Image, UnidentifiedImageError
+except ImportError as error:
+    raise SystemExit("请先安装图片校验依赖：python3 -m pip install -r requirements.txt") from error
+
 import ipaddress
 import json
 import os
@@ -79,10 +87,30 @@ def _http_error(error, secret=None):
     return RuntimeError(f"生图接口 HTTP {error.code}{suffix}")
 
 
+MAX_IMAGE_PIXELS = 32_000_000
+
+
 def _valid_image(data):
-    if data.startswith(IMAGE_SIGNATURES[:2]):
-        return True
-    return data.startswith(b"RIFF") and data[8:12] == b"WEBP"
+    """Check structure and decode pixels before replacing any existing output."""
+    if not data or len(data) > MAX_RESPONSE_BYTES:
+        return False
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(data)) as image:
+                if image.format not in {"PNG", "JPEG", "WEBP"}:
+                    return False
+                width, height = image.size
+                if width <= 0 or height <= 0 or width * height > MAX_IMAGE_PIXELS:
+                    return False
+                image.verify()
+            # verify() checks containers; load() also validates compressed pixels.
+            with Image.open(io.BytesIO(data)) as image:
+                image.load()
+    except (OSError, ValueError, SyntaxError, UnidentifiedImageError,
+            Image.DecompressionBombError, Image.DecompressionBombWarning):
+        return False
+    return True
 
 
 def image_bytes_from_payload(payload, opener=None, timeout=300):
@@ -95,6 +123,8 @@ def image_bytes_from_payload(payload, opener=None, timeout=300):
 
     encoded = candidate.get("b64_json")
     if encoded:
+        if not isinstance(encoded, str) or len(encoded) > ((MAX_RESPONSE_BYTES + 2) // 3) * 4 + 128:
+            raise ValueError("生图响应包含无效或过大的 base64")
         if encoded.startswith("data:"):
             encoded = encoded.partition(",")[2]
         try:
@@ -129,6 +159,8 @@ def image_bytes_from_payload(payload, opener=None, timeout=300):
 
 
 def _write_atomic(output, data):
+    if not _valid_image(data):
+        raise ValueError("图片损坏、格式不支持或尺寸超限")
     output = Path(output).expanduser().resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     temp_path = None
