@@ -40,7 +40,7 @@
 
 ## 安装
 
-要求 Python >= 3.9。第三方 API 生图脚本使用 Pillow 校验完整图片；提示词工作流和宿主内置生图无需安装脚本依赖。
+第三方 API 生图脚本要求 Python 3.11+，使用 Pillow 校验完整图片；提示词工作流和宿主内置生图无需安装脚本依赖。
 
 ```bash
 git clone https://github.com/HeiGeAi/chinese-celestial-palace.git \
@@ -116,5 +116,5 @@ Skill 内含视觉 DNA、八种构图原型、天界聚落拓扑、镜头与画�
 
 ### Image validation dependency
 
-Before running the generator or tests, install `python -m pip install -r requirements.txt`.
+Use Python 3.11 or newer for the generator or tests. Before running them, install `python -m pip install -r requirements.txt`.
 PNG, JPEG and WebP responses are fully decoded before atomic replacement, with a 64 MiB encoded-file limit and a 32-million-pixel limit.
