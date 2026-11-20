@@ -126,7 +126,7 @@ description: "Use when creating, adapting, diagnosing, refining, or directly gen
 
    设置完成后，用户只需回复「已设置，请用 GPTX 生图」。
 3. 把必要排除项合并进自然语言主提示词，因为该路径只发送 `prompt`，不假设独立 `negative_prompt` 字段可用。
-4. 从本 Skill 根目录运行：
+4. 从本 Skill 根目录运行前，安装图片完整性校验依赖：`python3 -m pip install -r requirements.txt`。然后运行：
 
    ```bash
    python3 scripts/generate_image.py \
