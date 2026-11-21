@@ -12,6 +12,7 @@ except ImportError as error:
 
 import ipaddress
 import json
+import math
 import os
 import re
 import tempfile
@@ -43,8 +44,18 @@ class _NoRedirect(HTTPRedirectHandler):
         return None
 
 
+class _HttpsOnlyRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        parsed = urlsplit(newurl)
+        if parsed.scheme != "https" or not parsed.hostname:
+            if fp is not None:
+                fp.close()
+            raise ValueError("生图结果重定向到了非 HTTPS 地址")
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 _NO_REDIRECT_OPEN = build_opener(_NoRedirect).open
-_FOLLOW_REDIRECT_OPEN = build_opener().open
+_FOLLOW_REDIRECT_OPEN = build_opener(_HttpsOnlyRedirectHandler).open
 
 
 def _is_loopback(hostname):
@@ -74,11 +85,28 @@ def _read_limited(response, limit=MAX_RESPONSE_BYTES):
 
 
 def _http_error(error, secret=None):
+    detail = None
     try:
-        payload = json.loads(error.read(4097)[:4096])
-        detail = payload.get("error", {}).get("message") or payload.get("message")
-    except (AttributeError, json.JSONDecodeError, UnicodeDecodeError):
-        detail = None
+        raw = error.read(4097)[:4096]
+    except OSError:
+        raw = b""
+    finally:
+        close = getattr(error, "close", None)
+        if callable(close):
+            close()
+    if raw:
+        try:
+            payload = json.loads(raw)
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            payload = None
+        if isinstance(payload, dict):
+            err_field = payload.get("error")
+            if isinstance(err_field, dict):
+                detail = err_field.get("message")
+            elif isinstance(err_field, str):
+                detail = err_field
+            if not detail:
+                detail = payload.get("message")
     if detail:
         detail = re.sub(r"(?i)Bearer\s+\S+|sk-[A-Za-z0-9_-]{8,}", "[REDACTED]", str(detail))
         if secret:
@@ -122,7 +150,7 @@ def image_bytes_from_payload(payload, opener=None, timeout=300):
         raise ValueError("生图响应缺少 data[0]")
 
     encoded = candidate.get("b64_json")
-    if encoded:
+    if encoded is not None and encoded != "":
         if not isinstance(encoded, str) or len(encoded) > ((MAX_RESPONSE_BYTES + 2) // 3) * 4 + 128:
             raise ValueError("生图响应包含无效或过大的 base64")
         if encoded.startswith("data:"):
@@ -131,8 +159,10 @@ def image_bytes_from_payload(payload, opener=None, timeout=300):
             image = base64.b64decode(encoded, validate=True)
         except (binascii.Error, ValueError) as error:
             raise ValueError("生图响应包含无效 base64") from error
-    elif candidate.get("url"):
+    elif candidate.get("url") is not None:
         image_url = candidate["url"]
+        if not isinstance(image_url, str) or not image_url.strip():
+            raise ValueError("生图结果 URL 必须使用 HTTPS")
         parsed = urlsplit(image_url)
         if parsed.scheme != "https" or not parsed.hostname:
             raise ValueError("生图结果 URL 必须使用 HTTPS")
@@ -158,10 +188,20 @@ def image_bytes_from_payload(payload, opener=None, timeout=300):
     return image
 
 
+def _prepare_output_path(output):
+    raw = Path(output).expanduser()
+    if raw.is_symlink():
+        raise ValueError("输出路径不能是符号链接")
+    resolved = raw.resolve()
+    if resolved.exists() and resolved.is_dir():
+        raise ValueError("输出路径不能是目录")
+    return resolved
+
+
 def _write_atomic(output, data):
     if not _valid_image(data):
         raise ValueError("图片损坏、格式不支持或尺寸超限")
-    output = Path(output).expanduser().resolve()
+    output = _prepare_output_path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     temp_path = None
     try:
@@ -190,6 +230,9 @@ def generate_image(
     key = os.environ.get("GPTX_API_KEY")
     if not key:
         raise ValueError("缺少 GPTX_API_KEY 环境变量")
+    if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError("timeout 必须大于 0")
+    output = _prepare_output_path(output)
     opener = opener or _NO_REDIRECT_OPEN
     prompt = prompt.strip()
     if not prompt:
